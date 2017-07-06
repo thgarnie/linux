@@ -588,37 +588,42 @@ last_block_enter:
 	mov	INP, _INP(%rsp)
 
 	## schedule 48 input dwords, by doing 3 rounds of 12 each
-	xor	SRND, SRND
+	leaq	K256(%rip), SRND
+	## loop1 upper bound
+	leaq	K256+3*4*32(%rip), INP
 
 .align 16
 loop1:
-	vpaddd	K256+0*32(SRND), X0, XFER
+	vpaddd	0*32(SRND), X0, XFER
 	vmovdqa XFER, 0*32+_XFER(%rsp, SRND)
 	FOUR_ROUNDS_AND_SCHED	_XFER + 0*32
 
-	vpaddd	K256+1*32(SRND), X0, XFER
+	vpaddd	1*32(SRND), X0, XFER
 	vmovdqa XFER, 1*32+_XFER(%rsp, SRND)
 	FOUR_ROUNDS_AND_SCHED	_XFER + 1*32
 
-	vpaddd	K256+2*32(SRND), X0, XFER
+	vpaddd	2*32(SRND), X0, XFER
 	vmovdqa XFER, 2*32+_XFER(%rsp, SRND)
 	FOUR_ROUNDS_AND_SCHED	_XFER + 2*32
 
-	vpaddd	K256+3*32(SRND), X0, XFER
+	vpaddd	3*32(SRND), X0, XFER
 	vmovdqa XFER, 3*32+_XFER(%rsp, SRND)
 	FOUR_ROUNDS_AND_SCHED	_XFER + 3*32
 
 	add	$4*32, SRND
-	cmp	$3*4*32, SRND
+	cmp	INP, SRND
 	jb	loop1
+
+	## loop2 upper bound
+	leaq	K256+4*4*32(%rip), INP
 
 loop2:
 	## Do last 16 rounds with no scheduling
-	vpaddd	K256+0*32(SRND), X0, XFER
+	vpaddd	0*32(SRND), X0, XFER
 	vmovdqa XFER, 0*32+_XFER(%rsp, SRND)
 	DO_4ROUNDS	_XFER + 0*32
 
-	vpaddd	K256+1*32(SRND), X1, XFER
+	vpaddd	1*32(SRND), X1, XFER
 	vmovdqa XFER, 1*32+_XFER(%rsp, SRND)
 	DO_4ROUNDS	_XFER + 1*32
 	add	$2*32, SRND
@@ -626,7 +631,7 @@ loop2:
 	vmovdqa	X2, X0
 	vmovdqa	X3, X1
 
-	cmp	$4*4*32, SRND
+	cmp	INP, SRND
 	jb	loop2
 
 	mov	_CTX(%rsp), CTX
