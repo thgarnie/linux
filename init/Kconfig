@@ -1848,6 +1848,13 @@ config CMDLINE_OVERRIDE
 
 endif
 
+#
+# Default to hidden visibility for all symbols.
+# Useful for Position Independent Code to reduce global references.
+#
+config DEFAULT_HIDDEN_SYMS
+	bool
+
 endmenu		# General setup
 
 source "arch/Kconfig"
