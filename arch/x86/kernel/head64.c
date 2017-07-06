@@ -73,6 +73,15 @@ static unsigned long __head *fixup_long(void *ptr, unsigned long physaddr)
 	return fixup_pointer(ptr, physaddr);
 }
 
+/* The relocated addr of _text even with -fPIE. */
+static unsigned long _reloc_text = (unsigned long)_text;
+
+/* Provide the relocated address of a pointer, with or without -fPIE. */
+static inline unsigned long reloc_addr(void *rel)
+{
+	return ((unsigned long)rel - (unsigned long)_text) + _reloc_text;
+}
+
 #ifdef CONFIG_X86_5LEVEL
 static unsigned int __head *fixup_int(void *ptr, unsigned long physaddr)
 {
@@ -135,7 +144,7 @@ unsigned long __head __startup_64(unsigned long physaddr,
 	 * Compute the delta between the address I am compiled to run at
 	 * and the address I am actually running at.
 	 */
-	load_delta = physaddr - (unsigned long)(_text - __START_KERNEL_map);
+	load_delta = physaddr - (reloc_addr(_text) - __START_KERNEL_map);
 
 	/* Is the address not 2M aligned? */
 	if (load_delta & ~PMD_PAGE_MASK)
@@ -144,17 +153,17 @@ unsigned long __head __startup_64(unsigned long physaddr,
 	/* Activate Secure Memory Encryption (SME) if supported and enabled */
 	sme_enable(bp);
 
+
 	/* Include the SME encryption mask in the fixup value */
 	load_delta += sme_get_me_mask();
 
 	/* Fixup the physical addresses in the page table */
-
 	pgd = fixup_pointer(&early_top_pgt, physaddr);
 	p = pgd + pgd_index(__START_KERNEL_map);
 	if (la57)
-		*p = (unsigned long)level4_kernel_pgt;
+		*p = reloc_addr(level4_kernel_pgt);
 	else
-		*p = (unsigned long)level3_kernel_pgt;
+		*p = reloc_addr(level3_kernel_pgt);
 	*p += _PAGE_TABLE_NOENC - __START_KERNEL_map + load_delta;
 
 	if (la57) {
@@ -236,11 +245,11 @@ unsigned long __head __startup_64(unsigned long physaddr,
 	pmd = fixup_pointer(level2_kernel_pgt, physaddr);
 
 	/* invalidate pages before the kernel image */
-	for (i = 0; i < pmd_index((unsigned long)_text); i++)
+	for (i = 0; i < pmd_index(reloc_addr(_text)); i++)
 		pmd[i] &= ~_PAGE_PRESENT;
 
 	/* fixup pages that are part of the kernel image */
-	for (; i <= pmd_index((unsigned long)_end); i++)
+	for (; i <= pmd_index(reloc_addr(_end)); i++)
 		if (pmd[i] & _PAGE_PRESENT)
 			pmd[i] += load_delta;
 
@@ -264,8 +273,8 @@ unsigned long __head __startup_64(unsigned long physaddr,
 	 * attribute.
 	 */
 	if (mem_encrypt_active()) {
-		vaddr = (unsigned long)__start_bss_decrypted;
-		vaddr_end = (unsigned long)__end_bss_decrypted;
+		vaddr = reloc_addr(__start_bss_decrypted);
+		vaddr_end = reloc_addr(__end_bss_decrypted);
 		for (; vaddr < vaddr_end; vaddr += PMD_SIZE) {
 			i = pmd_index(vaddr);
 			pmd[i] -= sme_get_me_mask();
