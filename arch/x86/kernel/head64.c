@@ -62,6 +62,7 @@ EXPORT_SYMBOL(vmemmap_base);
 #endif
 
 #define __head	__section(.head.text)
+#define pud_count(x)   (((x + (PUD_SIZE - 1)) & ~(PUD_SIZE - 1)) >> PUD_SHIFT)
 
 static void __head *fixup_pointer(void *ptr, unsigned long physaddr)
 {
@@ -113,6 +114,21 @@ static bool __head check_la57_support(unsigned long physaddr)
 }
 #endif
 
+/*
+ * With large KASLR, the kernel can be in three different PUDs. Calculate the
+ * exact offset based on pud_index & pmd_index. The pud_entry without large
+ * KASLR will be zero having no impact to the original calculation.
+ */
+static int get_kernel_pmd_index(void *ptr)
+{
+	unsigned long addr;
+	int pud_entry;
+
+	addr = reloc_addr(ptr);
+	pud_entry = pud_index(addr) - pud_index(__START_KERNEL_map);
+	return (pud_entry * PTRS_PER_PMD) + pmd_index(addr);
+}
+
 /* Code in __startup_64() can be relocated during execution, but the compiler
  * doesn't have to generate PC-relative relocations when accessing globals from
  * that function. Clang actually does not generate them, which leads to
@@ -125,6 +141,8 @@ unsigned long __head __startup_64(unsigned long physaddr,
 	unsigned long vaddr, vaddr_end;
 	unsigned long load_delta, *p;
 	unsigned long pgtable_flags;
+	unsigned long level3_kernel_start, level3_kernel_count;
+	unsigned long level3_fixmap_start;
 	pgdval_t *pgd;
 	p4dval_t *p4d;
 	pudval_t *pud;
@@ -157,6 +175,11 @@ unsigned long __head __startup_64(unsigned long physaddr,
 	/* Include the SME encryption mask in the fixup value */
 	load_delta += sme_get_me_mask();
 
+	/* Look at the randomization spread to adapt page table used */
+	level3_kernel_start = pud_index(__START_KERNEL_map);
+	level3_kernel_count = pud_count(KERNEL_IMAGE_SIZE);
+	level3_fixmap_start = level3_kernel_start + level3_kernel_count;
+
 	/* Fixup the physical addresses in the page table */
 	pgd = fixup_pointer(&early_top_pgt, physaddr);
 	p = pgd + pgd_index(__START_KERNEL_map);
@@ -172,8 +195,9 @@ unsigned long __head __startup_64(unsigned long physaddr,
 	}
 
 	pud = fixup_pointer(&level3_kernel_pgt, physaddr);
-	pud[510] += load_delta;
-	pud[511] += load_delta;
+	for (i = 0; i < level3_kernel_count; i++)
+		pud[level3_kernel_start + i] += load_delta;
+	pud[level3_fixmap_start] += load_delta;
 
 	pmd = fixup_pointer(level2_fixmap_pgt, physaddr);
 	for (i = FIXMAP_PMD_TOP; i > FIXMAP_PMD_TOP - FIXMAP_PMD_NUM; i--)
@@ -243,18 +267,17 @@ unsigned long __head __startup_64(unsigned long physaddr,
 	 */
 
 	pmd = fixup_pointer(level2_kernel_pgt, physaddr);
-
 	/* invalidate pages before the kernel image */
-	for (i = 0; i < pmd_index(reloc_addr(_text)); i++)
+	for (i = 0; i < get_kernel_pmd_index(_text); i++)
 		pmd[i] &= ~_PAGE_PRESENT;
 
 	/* fixup pages that are part of the kernel image */
-	for (; i <= pmd_index(reloc_addr(_end)); i++)
+	for (; i <= get_kernel_pmd_index(_end); i++)
 		if (pmd[i] & _PAGE_PRESENT)
 			pmd[i] += load_delta;
 
 	/* invalidate pages after the kernel image */
-	for (; i < PTRS_PER_PMD; i++)
+	for (; i < PTRS_PER_PMD * level3_kernel_count; i++)
 		pmd[i] &= ~_PAGE_PRESENT;
 
 	/*
