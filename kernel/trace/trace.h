@@ -1919,8 +1919,8 @@ extern int tracing_snapshot_cond_enable(struct trace_array *tr, void *cond_data,
 extern int tracing_snapshot_cond_disable(struct trace_array *tr);
 extern void *tracing_cond_snapshot_data(struct trace_array *tr);
 
-extern const char *__start___trace_bprintk_fmt[];
-extern const char *__stop___trace_bprintk_fmt[];
+extern const char *__start___trace_bprintk_fmt[] __default_visibility;
+extern const char *__stop___trace_bprintk_fmt[] __default_visibility;
 
 extern const char *__start___tracepoint_str[];
 extern const char *__stop___tracepoint_str[];
