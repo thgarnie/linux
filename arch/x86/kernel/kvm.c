@@ -840,9 +840,19 @@ asm(
 ".global __raw_callee_save___kvm_vcpu_is_preempted;"
 ".type __raw_callee_save___kvm_vcpu_is_preempted, @function;"
 "__raw_callee_save___kvm_vcpu_is_preempted:"
+#ifdef CONFIG_X86_PIE
+"leaq   __per_cpu_offset(%rip), %rax;"
+"movq	(%rax,%rdi,8), %rax;"
+"pushq	%rdx;"
+"leaq	" __stringify(KVM_STEAL_TIME_preempted) "+steal_time(%rip), %rdx;"
+"cmpb	$0, (%rax,%rdx,1);"
+"setne	%al;"
+"popq	%rdx;"
+#else
 "movq	__per_cpu_offset(,%rdi,8), %rax;"
 "cmpb	$0, " __stringify(KVM_STEAL_TIME_preempted) "+steal_time(%rax);"
 "setne	%al;"
+#endif
 "ret;"
 ".size __raw_callee_save___kvm_vcpu_is_preempted, .-__raw_callee_save___kvm_vcpu_is_preempted;"
 ".popsection");

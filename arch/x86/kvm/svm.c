@@ -718,12 +718,12 @@ static u32 svm_msrpm_offset(u32 msr)
 
 static inline void clgi(void)
 {
-	asm volatile (__ex("clgi"));
+	asm volatile (__ex("clgi") : :);
 }
 
 static inline void stgi(void)
 {
-	asm volatile (__ex("stgi"));
+	asm volatile (__ex("stgi") : :);
 }
 
 static inline void invlpga(unsigned long addr, u32 asid)
