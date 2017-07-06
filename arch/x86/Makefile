@@ -130,6 +130,20 @@ else
         KBUILD_CFLAGS += $(cflags-y)
 
         KBUILD_CFLAGS += -mno-red-zone
+ifdef CONFIG_X86_PIE
+ifdef CONFIG_STACKPROTECTOR
+        stackseg-flag := -mstack-protector-guard-reg=%gs -mstack-protector-guard-symbol=fixed_percpu_data+0x28
+        ifeq ($(call cc-option-yn,$(stackseg-flag)),n)
+                $(error echo Cannot use \
+                        CONFIG_CC_STACKPROTECTOR_(REGULAR|STRONG|AUTO) \
+                        while building a position independent binary. \
+                        Update your compiler to support \
+                        -mstack-protector-guard-reg and \
+                        -mstack-protector-guard-symbol)
+        endif
+        KBUILD_CFLAGS += $(stackseg-flag)
+endif
+endif
         KBUILD_CFLAGS += -mcmodel=kernel
 endif
 

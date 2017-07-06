@@ -265,7 +265,11 @@ SYM_CODE_END(start_cpu0)
 	__REFDATA
 	.balign	8
 SYM_DATA(initial_code,	.quad x86_64_start_kernel)
+#ifdef CONFIG_X86_PIE
+SYM_DATA(initial_gs,	.quad 0)
+#else
 SYM_DATA(initial_gs,	.quad INIT_PER_CPU_VAR(fixed_percpu_data))
+#endif
 
 /*
  * The SIZEOF_PTREGS gap is a convention which helps the in-kernel unwinder
