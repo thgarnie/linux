@@ -487,7 +487,9 @@ void load_percpu_segment(int cpu)
 	loadsegment(fs, __KERNEL_PERCPU);
 #else
 	__loadsegment_simple(gs, 0);
-	wrmsrl(MSR_GS_BASE, (unsigned long)per_cpu(irq_stack_union.gs_base, cpu));
+	wrmsrl(MSR_GS_BASE,
+	       (unsigned long)per_cpu(irq_stack_union.gs_base, cpu) -
+	       (unsigned long)__per_cpu_start);
 #endif
 	load_stack_canary_segment();
 }
