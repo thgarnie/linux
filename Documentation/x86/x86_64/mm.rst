@@ -159,3 +159,6 @@ correct as KASAN disables KASLR.
 
 For both 4- and 5-level layouts, the STACKLEAK_POISON value in the last 2MB
 hole: ffffffffffff4111
+
+If CONFIG_DYNAMIC_MODULE_BASE is enabled, the module section follows the end of
+the mapped kernel.
