@@ -131,7 +131,24 @@ else
 
         KBUILD_CFLAGS += -mno-red-zone
 ifdef CONFIG_X86_PIE
+        KBUILD_CFLAGS += -fPIE
         KBUILD_LDFLAGS_MODULE += -T $(srctree)/arch/x86/kernel/module.lds
+
+        # Relax relocation in both CFLAGS and LDFLAGS to support older compilers
+        KBUILD_CFLAGS += $(call cc-option,-Wa$(comma)-mrelax-relocations=no)
+        LDFLAGS_vmlinux += $(call ld-option,--no-relax)
+        KBUILD_LDFLAGS_MODULE += $(call ld-option,--no-relax)
+
+        # Custom relocation is done at boot
+        LDFLAGS_vmlinux += $(call ld-option,--no-dynamic-linker)
+
+        # Stack validation is not yet support due to self-referenced switches
+ifdef CONFIG_STACK_VALIDATION
+        $(warning CONFIG_STACK_VALIDATION is not yet supported for x86_64 pie \
+                build.)
+        SKIP_STACK_VALIDATION := 1
+        export SKIP_STACK_VALIDATION
+endif
 
 ifdef CONFIG_STACKPROTECTOR
         stackseg-flag := -mstack-protector-guard-reg=%gs -mstack-protector-guard-symbol=fixed_percpu_data+0x28
@@ -145,8 +162,10 @@ ifdef CONFIG_STACKPROTECTOR
         endif
         KBUILD_CFLAGS += $(stackseg-flag)
 endif
-endif
+
+else
         KBUILD_CFLAGS += -mcmodel=kernel
+endif
 endif
 
 ifdef CONFIG_X86_X32

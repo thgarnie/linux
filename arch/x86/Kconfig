@@ -96,7 +96,7 @@ config X86
 	select ARCH_WANTS_DYNAMIC_TASK_STRUCT
 	select ARCH_WANT_HUGE_PMD_SHARE
 	select ARCH_WANTS_THP_SWAP		if X86_64
-	select BUILDTIME_TABLE_SORT
+	select BUILDTIME_TABLE_SORT		if !X86_PIE
 	select CLKEVT_I8253
 	select CLOCKSOURCE_VALIDATE_LAST_CYCLE
 	select CLOCKSOURCE_WATCHDOG
@@ -2255,6 +2255,14 @@ config RANDOMIZE_MEMORY_PHYSICAL_PADDING
 # Module section starts just after the end of the kernel module
 config DYNAMIC_MODULE_BASE
 	bool
+
+config X86_PIE
+	bool
+	depends on X86_64
+	select DEFAULT_HIDDEN_SYMS
+	select WEAK_PROVIDE_HIDDEN
+	select DYNAMIC_MODULE_BASE
+	select MODULE_REL_CRCS if MODVERSIONS
 
 config HOTPLUG_CPU
 	def_bool y
