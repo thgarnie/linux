@@ -131,6 +131,8 @@ else
 
         KBUILD_CFLAGS += -mno-red-zone
 ifdef CONFIG_X86_PIE
+        KBUILD_LDFLAGS_MODULE += -T $(srctree)/arch/x86/kernel/module.lds
+
 ifdef CONFIG_STACKPROTECTOR
         stackseg-flag := -mstack-protector-guard-reg=%gs -mstack-protector-guard-symbol=fixed_percpu_data+0x28
         ifeq ($(call cc-option-yn,$(stackseg-flag)),n)
