@@ -185,6 +185,17 @@ kallsyms_step()
 	kallsyms ${kallsyms_vmlinux} ${kallsymso}
 }
 
+gen_weak_provide_hidden()
+{
+        if [ -n "${CONFIG_WEAK_PROVIDE_HIDDEN}" ]; then
+                local pattern="s/^\s\+ w \(\w\+\)$/PROVIDE_HIDDEN(\1 = .);/gp"
+                echo -e "SECTIONS {\n. = _end;" > .tmp_vmlinux_hiddenld
+                ${NM} ${1} | sed -n "${pattern}" >> .tmp_vmlinux_hiddenld
+                echo "}" >> .tmp_vmlinux_hiddenld
+                LDFLAGS_vmlinux="${LDFLAGS_vmlinux} -T .tmp_vmlinux_hiddenld"
+        fi
+}
+
 # Create map file with all symbols from ${1}
 # See mksymap for additional details
 mksysmap()
@@ -275,6 +286,9 @@ if [ -n "${CONFIG_DEBUG_INFO_BTF}" ]; then
 		exit 1
 	fi
 fi
+
+# Generate weak linker script
+gen_weak_provide_hidden vmlinux.o
 
 kallsymso=""
 kallsymso_prev=""
