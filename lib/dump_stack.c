@@ -25,7 +25,7 @@ static void __dump_stack(void)
 #ifdef CONFIG_SMP
 static atomic_t dump_lock = ATOMIC_INIT(-1);
 
-asmlinkage __visible void dump_stack(void)
+asmlinkage __weak __visible void dump_stack(void)
 {
 	unsigned long flags;
 	int was_locked;
@@ -58,7 +58,7 @@ retry:
 	local_irq_restore(flags);
 }
 #else
-asmlinkage __visible void dump_stack(void)
+asmlinkage __weak __visible void dump_stack(void)
 {
 	__dump_stack();
 }
