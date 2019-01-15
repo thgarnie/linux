@@ -29,9 +29,12 @@ static void __iomem *INTCL_base;
 
 #define INTCG_ICTLR	0x0
 #define INTCG_CICFGR	0x100
+#define INTCG_CIPRTR	0x200
 #define INTCG_CIDSTR	0x1000
 
 #define INTCL_PICTLR	0x0
+#define INTCL_CFGR	0x14
+#define INTCL_PRTR	0x20
 #define INTCL_SIGR	0x60
 #define INTCL_HPPIR	0x68
 #define INTCL_RDYIR	0x6c
@@ -73,6 +76,78 @@ static void csky_mpintc_eoi(struct irq_data *d)
 	writel_relaxed(d->hwirq, reg_base + INTCL_CACR);
 }
 
+static int csky_mpintc_set_type(struct irq_data *d, unsigned int type)
+{
+	unsigned int priority, triger;
+	unsigned int offset, bit_offset;
+	void __iomem *reg_base;
+
+	/*
+	 * type Bit field: | 32 - 12  |  11 - 4  |   3 - 0    |
+	 *                   reserved   priority   triger type
+	 */
+	triger	 = type & IRQ_TYPE_SENSE_MASK;
+	priority = (type >> 4) & 0xff;
+
+	switch (triger) {
+	case IRQ_TYPE_LEVEL_HIGH:
+		triger = 0;
+		break;
+	case IRQ_TYPE_LEVEL_LOW:
+		triger = 1;
+		break;
+	case IRQ_TYPE_EDGE_RISING:
+		triger = 2;
+		break;
+	case IRQ_TYPE_EDGE_FALLING:
+		triger = 3;
+		break;
+	default:
+		triger = 0;
+		break;
+	}
+
+	if (d->hwirq < COMM_IRQ_BASE) {
+		reg_base = this_cpu_read(intcl_reg);
+
+		if (triger) {
+			offset = ((d->hwirq * 2) / 32) * 4;
+			bit_offset = (d->hwirq * 2) % 32;
+
+			writel_relaxed(triger << bit_offset,
+				reg_base + INTCL_CFGR + offset);
+		}
+
+		if (priority) {
+			offset = ((d->hwirq * 8) / 32) * 4;
+			bit_offset = (d->hwirq * 8) % 32;
+
+			writel_relaxed(priority << bit_offset,
+				reg_base + INTCL_PRTR + offset);
+		}
+	} else {
+		reg_base = INTCG_base;
+
+		if (triger) {
+			offset = (((d->hwirq - COMM_IRQ_BASE) * 2) / 32) * 4;
+			bit_offset = ((d->hwirq - COMM_IRQ_BASE) * 2) % 32;
+
+			writel_relaxed(triger << bit_offset,
+				reg_base + INTCG_CICFGR + offset);
+		}
+
+		if (priority) {
+			offset = (((d->hwirq - COMM_IRQ_BASE) * 8) / 32) * 4;
+			bit_offset = ((d->hwirq - COMM_IRQ_BASE) * 8) % 32;
+
+			writel_relaxed(priority << bit_offset,
+				reg_base + INTCG_CIPRTR + offset);
+		}
+	}
+
+	return 0;
+}
+
 #ifdef CONFIG_SMP
 static int csky_irq_set_affinity(struct irq_data *d,
 				 const struct cpumask *mask_val,
@@ -105,6 +180,7 @@ static struct irq_chip csky_irq_chip = {
 	.irq_eoi	= csky_mpintc_eoi,
 	.irq_enable	= csky_mpintc_enable,
 	.irq_disable	= csky_mpintc_disable,
+	.irq_set_type	= csky_mpintc_set_type,
 #ifdef CONFIG_SMP
 	.irq_set_affinity = csky_irq_set_affinity,
 #endif
@@ -127,7 +203,7 @@ static int csky_irqdomain_map(struct irq_domain *d, unsigned int irq,
 
 static const struct irq_domain_ops csky_irqdomain_ops = {
 	.map	= csky_irqdomain_map,
-	.xlate	= irq_domain_xlate_onecell,
+	.xlate	= irq_domain_xlate_onetwocell,
 };
 
 #ifdef CONFIG_SMP
