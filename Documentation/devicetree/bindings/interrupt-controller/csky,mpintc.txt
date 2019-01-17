@@ -11,6 +11,14 @@ Interrupt number definition:
  16-31  : private  irq, and we use 16 as the co-processor timer.
  31-1024: common irq for soc ip.
 
+Interrupt triger mode:
+  IRQ_TYPE_LEVEL_HIGH (default)
+  IRQ_TYPE_LEVEL_LOW
+  IRQ_TYPE_EDGE_RISING
+  IRQ_TYPE_EDGE_FALLING
+
+Interrupt priority range: 0-255
+
 =============================
 intc node bindings definition
 =============================
@@ -26,7 +34,7 @@ intc node bindings definition
 	- #interrupt-cells
 		Usage: required
 		Value type: <u32>
-		Definition: must be <1>
+		Definition: could be <1> or <2>
 	- interrupt-controller:
 		Usage: required
 
@@ -35,6 +43,18 @@ Examples:
 
 	intc: interrupt-controller {
 		compatible = "csky,mpintc";
-		#interrupt-cells = <1>;
+		#interrupt-cells = <2>;
 		interrupt-controller;
+	};
+
+	0: device-example {
+		...
+		interrupts = <33 IRQ_TYPE_EDGE_RISING>;
+		interrupt-parent = <&intc>;
+	};
+
+	1: device-example {
+		...
+		interrupts = <34 ((priority << 4) | IRQ_TYPE_EDGE_RISING)>;
+		interrupt-parent = <&intc>;
 	};
